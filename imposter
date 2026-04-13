@@ -190,3 +190,5 @@ local function stop()
 		end
 	end
 end
+
+Rayfield:LoadConfiguration()
