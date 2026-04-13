@@ -1,0 +1,192 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+Rayfield:LoadConfiguration()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Gibsss Hub",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "Rayfield Interface Suite",
+   LoadingSubtitle = "by Sirius",
+   ShowText = "Rayfield",
+   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   ToggleUIKeybind = "K",
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+
+   -- ScriptID = "sid_xxxxxxxxxxxx", -- Your Script ID from developer.sirius.menu — enables analytics, managed keys, and script hosting
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "Gibsss Hub"
+   },
+
+   Discord = {
+      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "noinvitelink", -- The Discord invite code, do not include Discord.gg/. E.g. Discord.gg/ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the Discord every time they load it up
+   },
+
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+      FileName = "Key", -- It is recommended to use something unique, as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Hello"} -- List of keys that the system will accept, can be RAW file links (pastebin, github, etc.) or simple strings ("hello", "key22")
+   }
+})
+
+
+
+local Tab = Window:CreateTab("Main", 4483362458) -- Title, Image
+
+local Main = Tab:CreateToggle({
+   Name = "ESP ALL ROLES",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file; make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+		if Value then
+			start()
+		else
+			stop()
+		end
+	end,
+})
+
+local Players = game:GetService("Players")
+
+local ROLE_COLORS = {
+	Crewmate = Color3.fromRGB(0, 255, 0),
+	Imposter = Color3.fromRGB(255, 0, 0),
+	Neutral  = Color3.fromRGB(0, 170, 255)
+}
+
+local connections = {}
+local running = false
+
+local function attachTag(player, character)
+	if not running then return end
+
+	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+	if not torso then return end
+
+	local old = torso:FindFirstChild("RoleTag")
+	if old then old:Destroy() end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "RoleTag"
+	billboard.Parent = torso
+	billboard.Adornee = torso
+	billboard.Size = UDim2.new(5, 0, 2, 0)
+	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboard.AlwaysOnTop = true
+	billboard.MaxDistance = 150
+
+	local subText = Instance.new("TextLabel")
+	subText.Parent = billboard
+	subText.BackgroundTransparency = 1
+	subText.Font = Enum.Font.GothamBold
+	subText.TextScaled = true
+	subText.TextStrokeTransparency = 0.25
+	subText.Size = UDim2.new(1, 0, 0.35, 0)
+	subText.Position = UDim2.new(0, 0, -0.05, 0)
+
+	local roleText = Instance.new("TextLabel")
+	roleText.Parent = billboard
+	roleText.BackgroundTransparency = 1
+	roleText.Font = Enum.Font.GothamBold
+	roleText.TextScaled = true
+	roleText.TextStrokeTransparency = 0.25
+	roleText.Size = UDim2.new(1, 0, 0.6, 0)
+	roleText.Position = UDim2.new(0, 0, 0.35, 0)
+
+	local function update()
+		if not running then return end
+
+		local ps = player:FindFirstChild("PublicStates")
+		if not ps then return end
+
+		local roleVal = ps:FindFirstChild("Role")
+		local subRoleVal = ps:FindFirstChild("SubRole")
+
+		if roleVal and roleVal.Value ~= "" then
+			roleText.Text = roleVal.Value
+			roleText.TextColor3 = ROLE_COLORS[roleVal.Value] or Color3.new(1,1,1)
+		else
+			roleText.Text = ""
+		end
+
+		if subRoleVal and subRoleVal.Value ~= "" then
+			subText.Text = subRoleVal.Value
+			subText.TextColor3 = roleText.TextColor3
+		else
+			subText.Text = ""
+		end
+	end
+
+	local ps = player:FindFirstChild("PublicStates")
+	if ps then
+		for _, v in ipairs(ps:GetChildren()) do
+			if v:IsA("StringValue") then
+				table.insert(connections, v.Changed:Connect(update))
+			end
+		end
+
+		table.insert(connections, ps.ChildAdded:Connect(function(v)
+			if v:IsA("StringValue") then
+				table.insert(connections, v.Changed:Connect(update))
+				update()
+			end
+		end))
+	end
+
+	update()
+end
+
+local function setupPlayer(player)
+	if not running then return end
+
+	table.insert(connections, player.CharacterAdded:Connect(function(char)
+		attachTag(player, char)
+	end))
+
+	if player.Character then
+		attachTag(player, player.Character)
+	end
+end
+
+local function start()
+	running = true
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		setupPlayer(plr)
+	end
+
+	table.insert(connections, Players.PlayerAdded:Connect(setupPlayer))
+end
+
+local function stop()
+	running = false
+
+	-- Disconnect all events
+	for _, conn in ipairs(connections) do
+		conn:Disconnect()
+	end
+	connections = {}
+
+	-- Remove all tags
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character then
+			local torso = plr.Character:FindFirstChild("UpperTorso") or plr.Character:FindFirstChild("Torso")
+			if torso then
+				local tag = torso:FindFirstChild("RoleTag")
+				if tag then tag:Destroy() end
+			end
+		end
+	end
+end
